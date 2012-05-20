@@ -19,9 +19,7 @@
     },
 
     "require-dev": {
-        "symfony/symfony":       "dev-master",
-        "behat/mink-extension":  "dev-master",
-        "behat/mink":            ">=1.4.0beta3,<1.5.0-dev"
+        "behat/mink": ">=1.4.0beta3,<1.4.x-dev"
     },
 
     "autoload": {
