@@ -3,6 +3,7 @@
 namespace spec\Behat\Symfony2Extension\Suite;
 
 use PhpSpec\ObjectBehavior;
+use Prophecy\Argument;
 use Symfony\Component\HttpKernel\Bundle\BundleInterface;
 use Symfony\Component\HttpKernel\KernelInterface;
 
