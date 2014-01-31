@@ -1,28 +1,22 @@
 <?php
 
+namespace Behat\Symfony2Extension;
+
+use Symfony\Component\Config\FileLocator,
+    Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition,
+    Symfony\Component\DependencyInjection\ContainerBuilder,
+    Symfony\Component\DependencyInjection\Loader\XmlFileLoader;
+
+use Behat\Behat\Extension\ExtensionInterface;
+
 /*
- * This file is part of the Behat Symfony2Extension
+ * This file is part of the Behat\Symfony2Extension
  *
  * (c) Konstantin Kudryashov <ever.zet@gmail.com>
  *
  * This source file is subject to the MIT license that is bundled
  * with this source code in the file LICENSE.
  */
-
-namespace Behat\Symfony2Extension;
-
-use Behat\Behat\Context\ServiceContainer\ContextExtension;
-use Behat\Behat\Gherkin\ServiceContainer\GherkinExtension;
-use Behat\MinkExtension\Extension as MinkExtension;
-use Behat\Testwork\EventDispatcher\ServiceContainer\EventDispatcherExtension;
-use Behat\Testwork\ServiceContainer\Extension as ExtensionInterface;
-use Behat\Testwork\ServiceContainer\ExtensionManager;
-use Behat\Testwork\Subject\ServiceContainer\SubjectExtension;
-use Behat\Testwork\Suite\ServiceContainer\SuiteExtension;
-use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
-use Symfony\Component\DependencyInjection\ContainerBuilder;
-use Symfony\Component\DependencyInjection\Definition;
-use Symfony\Component\DependencyInjection\Reference;
 
 /**
  * Symfony2 extension for Behat class.
@@ -31,27 +25,56 @@ use Symfony\Component\DependencyInjection\Reference;
  */
 class Extension implements ExtensionInterface
 {
-    const KERNEL_ID = 'symfony2_extension.kernel';
-
     /**
-     * {@inheritdoc}
+     * Loads a specific configuration.
+     *
+     * @param array            $config    Extension configuration hash (from behat.yml)
+     * @param ContainerBuilder $container ContainerBuilder instance
      */
-    public function getConfigKey()
+    public function load(array $config, ContainerBuilder $container)
     {
-        return 'symfony2';
+        $loader = new XmlFileLoader($container, new FileLocator(__DIR__.'/services'));
+        $loader->load('core.xml');
+
+        // starting from Behat 2.4.1, we can check for activated extensions
+        $extensions = $container->hasParameter('behat.extension.classes')
+                    ? $container->getParameter('behat.extension.classes')
+                    : array();
+
+        if (isset($config['bundle'])) {
+            $bundleName = preg_replace('/^\@/', '', $config['bundle']);
+            $container->setParameter('behat.symfony2_extension.bundle', $bundleName);
+        }
+        if (isset($config['kernel'])) {
+            foreach ($config['kernel'] as $key => $val) {
+                $container->setParameter('behat.symfony2_extension.kernel.'.$key, $val);
+            }
+        }
+        if (isset($config['context'])) {
+            foreach ($config['context'] as $key => $val) {
+                $container->setParameter('behat.symfony2_extension.context.'.$key, $val);
+            }
+        }
+
+        if ($config['mink_driver']) {
+            if (!class_exists('Behat\\Mink\\Driver\\BrowserKitDriver')) {
+                throw new \RuntimeException(
+                    'Install MinkBrowserKitDriver in order to activate symfony2 session.'
+                );
+            }
+
+            $loader->load('mink_driver.xml');
+        } elseif (in_array('Behat\\MinkExtension\\Extension', $extensions) && class_exists('Behat\\Mink\\Driver\\BrowserKitDriver')) {
+            $loader->load('mink_driver.xml');
+        }
     }
 
     /**
-     * {@inheritdoc}
+     * Setups configuration for current extension.
+     *
+     * @param ArrayNodeDefinition $builder
      */
-    public function initialize(ExtensionManager $extensionManager)
-    {
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function configure(ArrayNodeDefinition $builder)
+    public function getConfig(ArrayNodeDefinition $builder)
     {
         $boolFilter = function ($v) {
             $filtered = filter_var($v, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
@@ -59,159 +82,62 @@ class Extension implements ExtensionInterface
             return (null === $filtered) ? $v : $filtered;
         };
 
-        $builder
-            ->addDefaultsIfNotSet()
-            ->children()
-                ->arrayNode('kernel')
-                    ->addDefaultsIfNotSet()
-                    ->children()
-                        ->scalarNode('bootstrap')->defaultValue('app/autoload.php')->end()
-                        ->scalarNode('path')->defaultValue('app/AppKernel.php')->end()
-                        ->scalarNode('class')->defaultValue('AppKernel')->end()
-                        ->scalarNode('env')->defaultValue('test')->end()
-                        ->booleanNode('debug')
-                            ->beforeNormalization()
-                                ->ifString()->then($boolFilter)
-                            ->end()
-                            ->defaultTrue()
-                        ->end()
-                    ->end()
-                ->end()
-                ->arrayNode('context')
-                    ->addDefaultsIfNotSet()
-                    ->children()
-                        ->scalarNode('path_suffix')
-                            ->defaultValue('Features')
-                        ->end()
-                        ->scalarNode('class_suffix')
-                            ->defaultValue('Features\Context\FeatureContext')
-                        ->end()
-                    ->end()
-                ->end()
-                ->booleanNode('mink_driver')
-                    ->beforeNormalization()
-                        ->ifString()->then($boolFilter)
-                    ->end()
-                    ->defaultValue(class_exists('Behat\Mink\Driver\BrowserKitDriver') && class_exists('Behat\MinkExtension\Extension'))
-                ->end()
-            ->end()
-        ->end();
+        $builder->
+            children()->
+                scalarNode('bundle')->
+                    defaultNull()->
+                end()->
+                arrayNode('kernel')->
+                    children()->
+                        scalarNode('bootstrap')->
+                            defaultValue('app/autoload.php')->
+                        end()->
+                        scalarNode('path')->
+                            defaultValue('app/AppKernel.php')->
+                        end()->
+                        scalarNode('class')->
+                            defaultValue('AppKernel')->
+                        end()->
+                        scalarNode('env')->
+                            defaultValue('test')->
+                        end()->
+                        booleanNode('debug')->
+                            beforeNormalization()->
+                                ifString()->then($boolFilter)->
+                            end()->
+                            defaultTrue()->
+                        end()->
+                    end()->
+                end()->
+                arrayNode('context')->
+                    children()->
+                        scalarNode('path_suffix')->
+                            defaultValue('Features')->
+                        end()->
+                        scalarNode('class_suffix')->
+                            defaultValue('Features\\Context\\FeatureContext')->
+                        end()->
+                    end()->
+                end()->
+                booleanNode('mink_driver')->
+                    beforeNormalization()->
+                        ifString()->then($boolFilter)->
+                    end()->
+                    defaultFalse()->
+                end()->
+            end()->
+        end();
     }
 
     /**
-     * {@inheritdoc}
+     * Returns compiler passes used by mink extension.
+     *
+     * @return array
      */
-    public function load(ContainerBuilder $container, array $config)
+    public function getCompilerPasses()
     {
-        $this->loadClassGenerator($container);
-        $this->loadContextInitializer($container);
-        $this->loadFeatureLocator($container);
-        $this->loadKernel($container, $config['kernel']);
-        $this->loadSuiteGenerator($container, $config['context']);
-
-        if ($config['mink_driver']) {
-            $this->loadMinkDriver($container);
-        }
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    public function process(ContainerBuilder $container)
-    {
-        // get base path
-        $basePath = $container->getParameter('paths.base');
-
-        // find and require bootstrap
-        $bootstrapPath = $container->getParameter('symfony2_extension.kernel.bootstrap');
-        if ($bootstrapPath) {
-            if (file_exists($bootstrap = $basePath . '/' . $bootstrapPath)) {
-                require_once($bootstrap);
-            } elseif (file_exists($bootstrapPath)) {
-                require_once($bootstrapPath);
-            }
-        }
-
-        // find and require kernel
-        $kernelPath = $container->getParameter('symfony2_extension.kernel.path');
-        if (file_exists($kernel = $basePath . '/' . $kernelPath)) {
-            $container->getDefinition(self::KERNEL_ID)->setFile($kernel);
-        } elseif (file_exists($kernelPath)) {
-            $container->getDefinition(self::KERNEL_ID)->setFile($kernelPath);
-        }
-    }
-
-    private function loadClassGenerator(ContainerBuilder $container)
-    {
-        $definition = new Definition('Behat\Symfony2Extension\Context\ContextClass\KernelAwareClassGenerator');
-        $definition->addTag(ContextExtension::CLASS_GENERATOR_TAG, array('priority' => 100));
-        $container->setDefinition('symfony2_extension.class_generator.kernel_aware', $definition);
-    }
-
-    private function loadContextInitializer(ContainerBuilder $container)
-    {
-        $definition = new Definition('Behat\Symfony2Extension\Context\Initializer\KernelAwareInitializer', array(
-            new Reference(self::KERNEL_ID),
-        ));
-        $definition->addTag(ContextExtension::INITIALIZER_TAG, array('priority' => 0));
-        $definition->addTag(EventDispatcherExtension::SUBSCRIBER_TAG, array('priority' => 0));
-        $container->setDefinition('symfony2_extension.context_initializer.kernel_aware', $definition);
-    }
-
-    private function loadFeatureLocator(ContainerBuilder $container)
-    {
-        $definition = new Definition('Behat\Symfony2Extension\Subject\BundleFeatureLocator', array(
-            new Reference(GherkinExtension::MANAGER_ID),
-            '%paths.base%'
-        ));
-        $definition->addTag(SubjectExtension::LOCATOR_TAG, array('priority' => 100));
-        $container->setDefinition('symfony2_extension.subject_locator.bundle_feature', $definition);
-    }
-
-    private function loadKernel(ContainerBuilder $container, array $config)
-    {
-        $definition = new Definition($config['class'], array(
-            $config['env'],
-            $config['debug'],
-        ));
-        $definition->addMethodCall('boot');
-        $container->setDefinition(self::KERNEL_ID, $definition);
-        $container->setParameter(self::KERNEL_ID . '.path', $config['path']);
-        $container->setParameter(self::KERNEL_ID . '.bootstrap', $config['bootstrap']);
-    }
-
-    private function loadMinkDriver(ContainerBuilder $container)
-    {
-        if (!class_exists('Behat\Mink\Driver\BrowserKitDriver')) {
-            throw new \RuntimeException(
-                'Install MinkBrowserKitDriver in order to activate the symfony2 session.'
-            );
-        }
-
-        if (!class_exists('Behat\MinkExtension\Extension')) {
-            throw new \RuntimeException(
-                'Install MinkExtension in order to activate the symfony2 session.'
-            );
-        }
-
-        $definition = new Definition('Behat\Mink\Session', array(
-            new Definition('Behat\Symfony2Extension\Driver\KernelDriver', array(
-                new Reference(self::KERNEL_ID)
-            )),
-            new Reference(MinkExtension::SELECTORS_HANDLER_ID),
-        ));
-        $definition->addTag(MinkExtension::SESSION_TAG, array('alias' => 'symfony2'));
-        $container->setDefinition('symfony_extension.mink_session.symfony2', $definition);
-    }
-
-    private function loadSuiteGenerator(ContainerBuilder $container, array $config)
-    {
-        $definition = new Definition('Behat\Symfony2Extension\Suite\SymfonySuiteGenerator', array(
-            new Reference(self::KERNEL_ID),
-            $config['path_suffix'],
-            $config['class_suffix'],
-        ));
-        $definition->addTag(SuiteExtension::GENERATOR_TAG, array('priority' => 100));
-        $container->setDefinition('symfony2_extension.suite.generator', $definition);
+        return array(
+            new Compiler\KernelInitializationPass()
+        );
     }
 }
