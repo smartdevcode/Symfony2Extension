@@ -3,26 +3,13 @@
 namespace Behat\Sf2DemoBundle\Features\Context;
 
 use Symfony\Component\HttpKernel\KernelInterface;
-use Behat\Symfony2Extension\Context\KernelAwareInterface;
+use Behat\Symfony2Extension\Context\KernelAwareContext;
 
-use Behat\Behat\Context\BehatContext;
-
-class FeatureContext extends BehatContext implements KernelAwareInterface
+class FeatureContext implements KernelAwareContext
 {
     private $kernel;
-    private $parameters;
     private $containerParameters;
     private $parameterKey;
-
-    /**
-     * Initializes context with parameters from behat.yml.
-     *
-     * @param array $parameters
-     */
-    public function __construct(array $parameters)
-    {
-        $this->parameters = $parameters;
-    }
 
     /**
      * Sets HttpKernel instance.
