@@ -154,10 +154,8 @@ class Extension implements ExtensionInterface
     private function loadFeatureLocator(ContainerBuilder $container)
     {
         $definition = new Definition('Behat\Symfony2Extension\Specification\BundleFeatureLocator', array(
-            new Definition('Behat\Behat\Gherkin\Specification\Locator\FilesystemFeatureLocator', array(
-                new Reference(GherkinExtension::MANAGER_ID),
-                '%paths.base%'
-            ))
+            new Reference(GherkinExtension::MANAGER_ID),
+            '%paths.base%'
         ));
         $definition->addTag(SpecificationExtension::LOCATOR_TAG, array('priority' => 100));
         $container->setDefinition('symfony2_extension.specification_locator.bundle_feature', $definition);

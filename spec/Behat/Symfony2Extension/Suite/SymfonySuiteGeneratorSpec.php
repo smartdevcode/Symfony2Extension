@@ -33,14 +33,9 @@ class SymfonySuiteGeneratorSpec extends ObjectBehavior
         $this->supportsTypeAndSettings('symfony_bundle', array())->shouldBe(true);
     }
 
-    function it_uses_suite_name_as_a_bundle_name_if_no_provided(KernelInterface $kernel, BundleInterface $bundle)
+    function it_fails_for_symfony_bundle_suites_without_a_bundle_setting()
     {
-        $kernel->getBundle('my_suite')->willReturn($bundle);
-
-        $suite = $this->generateSuite('my_suite', array());
-
-        $suite->shouldBeAnInstanceOf('Behat\Symfony2Extension\Suite\SymfonyBundleSuite');
-        $suite->getBundle()->shouldReturn($bundle);
+        $this->shouldThrow('Behat\Testwork\Suite\Exception\SuiteConfigurationException')->duringGenerateSuite('my_suite', array());
     }
 
     function it_fails_for_invalid_bundle_setting($kernel)
