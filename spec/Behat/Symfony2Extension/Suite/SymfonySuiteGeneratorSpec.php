@@ -33,9 +33,14 @@ class SymfonySuiteGeneratorSpec extends ObjectBehavior
         $this->supportsTypeAndSettings('symfony_bundle', array())->shouldBe(true);
     }
 
-    function it_fails_for_symfony_bundle_suites_without_a_bundle_setting()
+    function it_uses_suite_name_as_a_bundle_name_if_no_provided(KernelInterface $kernel, BundleInterface $bundle)
     {
-        $this->shouldThrow('Behat\Testwork\Suite\Exception\SuiteConfigurationException')->duringGenerateSuite('my_suite', array());
+        $kernel->getBundle('my_suite')->willReturn($bundle);
+
+        $suite = $this->generateSuite('my_suite', array());
+
+        $suite->shouldBeAnInstanceOf('Behat\Symfony2Extension\Suite\SymfonyBundleSuite');
+        $suite->getBundle()->shouldReturn($bundle);
     }
 
     function it_fails_for_invalid_bundle_setting($kernel)
@@ -43,6 +48,13 @@ class SymfonySuiteGeneratorSpec extends ObjectBehavior
         $kernel->getBundle('invalid')->willThrow('InvalidArgumentException');
 
         $this->shouldThrow('Behat\Testwork\Suite\Exception\SuiteConfigurationException')->duringGenerateSuite('my_suite', array('bundle' => 'invalid'));
+    }
+
+    function it_fails_for_invalid_bundle_taken_from_suite_name($kernel)
+    {
+        $kernel->getBundle('my_suite')->willThrow('InvalidArgumentException');
+
+        $this->shouldThrow('Behat\Testwork\Suite\Exception\SuiteConfigurationException')->duringGenerateSuite('my_suite', array());
     }
 
     function it_generates_suites_with_conventional_settings(BundleInterface $bundle, $kernel)
