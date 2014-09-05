@@ -13,9 +13,6 @@ namespace Behat\Symfony2Extension\Context\Argument;
 
 use Behat\Behat\Context\Argument\ArgumentResolver;
 use ReflectionClass;
-use Symfony\Component\DependencyInjection\ContainerInterface;
-use Symfony\Component\DependencyInjection\Exception\ParameterNotFoundException;
-use Symfony\Component\DependencyInjection\Exception\ServiceNotFoundException;
 use Symfony\Component\HttpKernel\KernelInterface;
 
 /**
@@ -54,95 +51,20 @@ final class ServiceArgumentResolver implements ArgumentResolver
     /**
      * Resolves single argument using container.
      *
-     * @param string $argument
+     * @param mixed $argument
      *
-     * @return mixed
+     * @return object
      */
     private function resolveArgument($argument)
     {
         $container = $this->kernel->getContainer();
 
-        if ($service = $this->getService($container, $argument)) {
-            return $service;
+        if (!is_string($argument) || '@' != $argument[0]) {
+            return $argument;
         }
 
-        if ($parameter = $this->getParameter($container, $argument)) {
-            return $parameter;
-        }
+        $serviceId = mb_substr($argument, 1, mb_strlen($argument, 'utf8'), 'utf8');
 
-        return $this->escape($argument);
-    }
-
-    /**
-     * @param ContainerInterface $container
-     * @param string $argument
-     * @return object|false
-     * @throws ServiceNotFoundException
-     */
-    private function getService(ContainerInterface $container, $argument)
-    {
-        if ($serviceName = $this->getServiceName($argument)) {
-            if (!$container->has($serviceName)) {
-                throw new ServiceNotFoundException(sprintf('Undefined service "%s"', $serviceName));
-            }
-
-            return $container->get($serviceName);
-        }
-
-        return false;
-    }
-
-    /**
-     * @param string $argument
-     * @return string|false
-     */
-    private function getServiceName($argument)
-    {
-        if (preg_match('/^@([^@].*)$/', $argument, $matches)) {
-            return $matches[1];
-        }
-
-        return false;
-    }
-
-    /**
-     * @param ContainerInterface $container
-     * @param string $argument
-     * @return bool
-     * @throws ParameterNotFoundException
-     */
-    private function getParameter(ContainerInterface $container, $argument)
-    {
-        if ($argumentName = $this->getParameterName($argument)) {
-            if (!$container->hasParameter($argumentName)) {
-                throw new ParameterNotFoundException(sprintf('Undefined parameter "%s"', $argumentName));
-            }
-
-            return $container->getParameter($argumentName);
-        }
-
-        return false;
-    }
-
-    /**
-     * @param string $argument
-     * @return string|false
-     */
-    private function getParameterName($argument)
-    {
-        if (preg_match('/^%(.*)%$/', $argument, $matches)) {
-            return $matches[1];
-        }
-
-        return false;
-    }
-
-    /**
-     * @param string $argument
-     * @return string
-     */
-    private function escape($argument)
-    {
-        return str_replace(array('@@', '%%'), array('@', '%'), $argument);
+        return $container->has($serviceId) ? $container->get($serviceId) : $argument;
     }
 }
