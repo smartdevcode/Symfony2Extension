@@ -1,23 +1,25 @@
 <?php
 
-/*
- * This file is part of the Behat Symfony2Extension
- *
- * (c) Konstantin Kudryashov <ever.zet@gmail.com>
- *
- * This source file is subject to the MIT license that is bundled
- * with this source code in the file LICENSE.
- */
-
 namespace Behat\Symfony2Extension\Context\Initializer;
 
-use Behat\Behat\Context\Context;
-use Behat\Behat\Context\Initializer\ContextInitializer;
-use Behat\Behat\EventDispatcher\Event\ExampleTested;
-use Behat\Behat\EventDispatcher\Event\ScenarioTested;
-use Behat\Symfony2Extension\Context\KernelAwareContext;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+
 use Symfony\Component\HttpKernel\KernelInterface;
+
+use Behat\Behat\Context\Initializer\InitializerInterface,
+    Behat\Behat\Context\ContextInterface,
+    Behat\Behat\Event\ScenarioEvent,
+    Behat\Behat\Event\OutlineEvent;
+
+use Behat\Symfony2Extension\Context\KernelAwareInterface;
+
+/*
+ * This file is part of the Behat\Symfony2Extension.
+ * (c) Konstantin Kudryashov <ever.zet@gmail.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
 
 /**
  * Kernel aware contexts initializer.
@@ -25,7 +27,7 @@ use Symfony\Component\HttpKernel\KernelInterface;
  *
  * @author Konstantin Kudryashov <ever.zet@gmail.com>
  */
-final class KernelAwareInitializer implements ContextInitializer, EventSubscriberInterface
+class KernelAwareInitializer implements InitializerInterface, EventSubscriberInterface
 {
     private $kernel;
 
@@ -40,46 +42,48 @@ final class KernelAwareInitializer implements ContextInitializer, EventSubscribe
     }
 
     /**
-     * {@inheritdoc}
+     * Returns an array of event names this subscriber wants to listen to.
+     *
+     * The array keys are event names and the value can be:
+     *
+     *  * The method name to call (priority defaults to 0)
+     *  * An array composed of the method name to call and the priority
+     *  * An array of arrays composed of the method names to call and respective
+     *    priorities, or 0 if unset
+     *
+     * For instance:
+     *
+     *  * array('eventName' => 'methodName')
+     *  * array('eventName' => array('methodName', $priority))
+     *  * array('eventName' => array(array('methodName1', $priority), array('methodName2'))
+     *
+     * @return array The event names to listen to
      */
     public static function getSubscribedEvents()
     {
         return array(
-            ScenarioTested::AFTER  => array('rebootKernel', -15),
-            ExampleTested::AFTER   => array('rebootKernel', -15),
+            'beforeScenario'       => array('bootKernel', 15),
+            'beforeOutlineExample' => array('bootKernel', 15),
+            'afterScenario'        => array('shutdownKernel', -15),
+            'afterOutlineExample'  => array('shutdownKernel', -15)
         );
     }
 
     /**
-     * {@inheritdoc}
+     * Checks if initializer supports provided context.
+     *
+     * @param ContextInterface $context
+     *
+     * @return Boolean
      */
-    public function initializeContext(Context $context)
+    public function supports(ContextInterface $context)
     {
-        if (!$context instanceof KernelAwareContext && !$this->usesKernelDictionary($context)) {
-            return;
+        // if context/subcontext implements KernelAwareInterface
+        if ($context instanceof KernelAwareInterface) {
+            return true;
         }
 
-        $context->setKernel($this->kernel);
-    }
-
-    /**
-     * Reboots HttpKernel after each scenario.
-     */
-    public function rebootKernel()
-    {
-        $this->kernel->shutdown();
-        $this->kernel->boot();
-    }
-
-    /**
-     * Checks whether the context uses the KernelDictionary trait.
-     *
-     * @param Context $context
-     *
-     * @return boolean
-     */
-    private function usesKernelDictionary(Context $context)
-    {
+        // if context/subcontext uses KernelDictionary trait
         $refl = new \ReflectionObject($context);
         if (method_exists($refl, 'getTraitNames')) {
             if (in_array('Behat\\Symfony2Extension\\Context\\KernelDictionary', $refl->getTraitNames())) {
@@ -88,5 +92,35 @@ final class KernelAwareInitializer implements ContextInitializer, EventSubscribe
         }
 
         return false;
+    }
+
+    /**
+     * Initializes provided context.
+     *
+     * @param ContextInterface $context
+     */
+    public function initialize(ContextInterface $context)
+    {
+        $context->setKernel($this->kernel);
+    }
+
+    /**
+     * Boots HttpKernel before each scenario.
+     *
+     * @param ScenarioEvent|OutlineEvent $event
+     */
+    public function bootKernel($event)
+    {
+        $this->kernel->boot();
+    }
+
+    /**
+     * Stops HttpKernel after each scenario.
+     *
+     * @param ScenarioEvent|OutlineEvent $event
+     */
+    public function shutdownKernel($event)
+    {
+        $this->kernel->shutdown();
     }
 }
