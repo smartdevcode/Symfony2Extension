@@ -23,26 +23,26 @@ The recommended installation method is through `Composer <http://getcomposer.org
 
 .. code-block:: bash
 
-    $ composer require behat/symfony2-extension
+    $ composer require --dev behat/symfony2-extension
 
 You can then activate the extension in your ``behat.yml``:
 
    .. code-block:: yaml
 
-       default:
-           # ...
-           extensions:
-               Behat\Symfony2Extension: ~
+        default:
+            # ...
+            extensions:
+                Behat\Symfony2Extension: ~
 
 The last (optional) step is to register a suite for your bundle:
 
    .. code-block:: yaml
 
-       default:
-           suites:
-               my_suite:
-                   type: symfony_bundle
-                   bundle: AcmeDemoBundle
+        default:
+            suites:
+                my_suite:
+                    type: symfony_bundle
+                    bundle: AppBundle
 
 .. note::
 
@@ -84,34 +84,34 @@ start with '@' into services:
 
 .. code-block:: yaml
 
-  default:
-    suites:
-      default:
-          contexts:
-              - FeatureContext:
-                  simpleArg: 'string'
-                  session:   '@session'
-      extensions:
-        Behat\Symfony2Extension: ~
+    default:
+        suites:
+            default:
+                contexts:
+                    - FeatureContext:
+                        simpleArg: 'string'
+                        session:   '@session'
+            extensions:
+                Behat\Symfony2Extension: ~
 
 The FeatureContext will then be initialized with the Symfony2 session from the container:
 
 .. code-block:: php
 
- <?php
-
- namespace FeatureContext;
-
-  use Behat\Behat\Context\Context;
-  use Symfony\Component\HttpFoundation\Session\Session;
-
-  class FeatureContext implements Context
-  {
-      public function __construct(Session $session, $simpleArg)
-      {
-          // $session is your Symfony2 @session
-      }
-  }
+    <?php
+    
+    namespace FeatureContext;
+    
+    use Behat\Behat\Context\Context;
+    use Symfony\Component\HttpFoundation\Session\Session;
+    
+    class FeatureContext implements Context
+    {
+        public function __construct(Session $session, $simpleArg)
+        {
+            // $session is your Symfony2 @session
+        }
+    }
 
 Injecting Parameters
 --------------------
@@ -158,13 +158,13 @@ convention for features files (putting them in the ``Features`` folder of the bu
 
 .. code-block:: bash
 
-    $ vendor/bin/behat "@AcmeDemoBundle"
+    $ vendor/bin/behat "@AppBundle"
 
 This can also be used to run specific features in the bundle:
 
 .. code-block:: bash
 
-    $ vendor/bin/behat "@AcmeDemoBundle/registration.feature"
+    $ vendor/bin/behat "@AppBundle/registration.feature"
     $ vendor/bin/behat src/Acme/DemoBundle/Features/registration.feature
 
 ``symfony2`` Mink Session
@@ -177,7 +177,7 @@ BrowserKit driver for Mink:
 
 .. code-block:: bash
 
-    $ composer require behat/mink-extension behat/mink-browserkit-driver
+    $ composer require --dev behat/mink-extension behat/mink-browserkit-driver
 
 The new Mink driver will be available for usage:
 
