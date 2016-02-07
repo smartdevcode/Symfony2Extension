@@ -60,10 +60,6 @@ final class ServiceArgumentResolver implements ArgumentResolver
      */
     private function resolveArgument($argument)
     {
-        if (is_array($argument)) {
-            return array_map(array($this, 'resolveArgument'), $argument);
-        }
-
         if (!is_string($argument)) {
             return $argument;
         }
